@@ -100,9 +100,28 @@ app.post('/login',function(req , res){
 
 //this is the dashboard page :
 app.get('/dashboard',function(req,res){
-	res.render('dashboard.jade');
-})
+	if(req.session && req.session.user){
+		Users.findOne({email : req.session.user.enail },function(err , user){
+			if(!user){
+				req.session.reset();
+				res.redirect('/login');
+			}
+			else{
+				res.local.user = user ;
+				res.render('dashboard.jade');
+			}
+		});
+	}
+	else{
+	res.redirect('/login');
+	}
+});
 
+//this is the logout route ....
+app.get('/logout',function(req , res){
+	req.session.reset();
+	res.redirect('/');
+})
 
 //the server starts listening :
 app.listen(3000);
