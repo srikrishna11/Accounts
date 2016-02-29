@@ -3,6 +3,7 @@ var app = express() ;
 var bodyParser = require('body-parser');
 var mongoose = require('mongoose');
 var sessions = require('client-sessions');
+var bcrypt = require('bcryptjs');
 
 
 
@@ -31,7 +32,7 @@ app.use(bodyParser.urlencoded({extended : true }));
 
 //sessions code :
 app.use(sessions({
-	cookie : 'session',
+	cookieName : 'sessions',
 	secret : 'adsjf;lajoiweruosajdflkajflweiojosnadfoaweoirjasokdjflkajds',
 	duration : 30 * 60 * 1000 ,
 	activeDuration : 60 * 1000 ,
@@ -46,11 +47,13 @@ app.get('/' , function(req , res ) {
 
 //to validate the details and store in the database :
 app.post('/register',function(req,res){
+	debugger;
+	var hash = bcrypt.hashSync(req.body.password , bcrypt.genSaltSync(10));
 	var user = new Users({
 		firstName : req.body.firstName,
 		lastName : req.body.lastName,
 		email : req.body.email,
-		password : req.body.password
+		password : hash
 	});
 	user.save(function(err){
 
@@ -62,7 +65,9 @@ app.post('/register',function(req,res){
 			res.render('register.jade',{error : error});
 		}
 		else{
-			res.render('dashboard.jade');
+			console.log("=============== creating sessions and redirecting to dashboard============");
+			req.sessions.user = user ;
+			res.redirect('/dashboard');
 		}
 	});
 	//res.render(register);
@@ -87,7 +92,8 @@ app.post('/login',function(req , res){
 		if(!user){
 			res.render('login.jade', { error : 'Invalid email or password ....'});
 		}else {
-			if(req.body.password === user.password){
+			if(bcrypt.compareSync(req.body.password , user.password)){
+				req.sessions.user = user ;
 				res.redirect('/dashboard');
 			}
 			else{
@@ -100,14 +106,15 @@ app.post('/login',function(req , res){
 
 //this is the dashboard page :
 app.get('/dashboard',function(req,res){
-	if(req.session && req.session.user){
-		Users.findOne({email : req.session.user.enail },function(err , user){
+	console.log("=========== in dashboard get request ===========");
+	if(req.sessions && req.sessions.user){
+		Users.findOne({email : req.sessions.user.email },function(err , user){
 			if(!user){
-				req.session.reset();
+				req.sessions.reset();
 				res.redirect('/login');
 			}
 			else{
-				res.local.user = user ;
+				res.locals.user = user ;
 				res.render('dashboard.jade');
 			}
 		});
@@ -119,7 +126,7 @@ app.get('/dashboard',function(req,res){
 
 //this is the logout route ....
 app.get('/logout',function(req , res){
-	req.session.reset();
+	req.sessions.reset();
 	res.redirect('/');
 })
 
